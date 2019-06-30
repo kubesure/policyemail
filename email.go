@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	io "io/ioutil"
 	"log"
 	"os"
 	"strings"
+	"time"
 
 	wpdf "github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	e "github.com/aws/aws-lambda-go/events"
@@ -94,12 +97,23 @@ func marshallReq(data string) (*polmetadata, error) {
 }
 
 func generatePDF(metadata *polmetadata) ([]byte, error) {
-	html := "<!doctype html><html><head><title>WKHTMLTOPDF TEST</title></head><body>HELLO PDF</body></html>"
+
+	html, herr := generateHTML(metadata)
+	if herr != nil {
+		return nil, herr
+	}
+
 	pdfg, err := wpdf.NewPDFGenerator()
 	if err != nil {
 		return nil, err
 	}
+
 	pdfg.AddPage(wpdf.NewPageReader(strings.NewReader(html)))
+	pdfg.Dpi.Set(350)
+	pdfg.MarginBottom.Set(0)
+	pdfg.MarginTop.Set(0)
+	pdfg.MarginLeft.Set(0)
+	pdfg.MarginRight.Set(0)
 	err = pdfg.Create()
 	if err != nil {
 		log.Fatal(err)
@@ -110,9 +124,32 @@ func generatePDF(metadata *polmetadata) ([]byte, error) {
 	if err != nil {
 		log.Fatal(err)
 	}
-
-	fmt.Println("Done")
 	return pdfg.Bytes(), nil
+}
+
+func generateHTML(metaData *polmetadata) (string, error) {
+	fmap := template.FuncMap{
+		"currentdate": currentdate,
+	}
+
+	t, errp := template.New("esyhealth-pdf.html").Funcs(fmap).ParseFiles("esyhealth-pdf.html")
+	if errp != nil {
+		return "", errp
+	}
+	buff := new(bytes.Buffer)
+	err := t.Execute(buff, metaData)
+	if err != nil {
+		return "", err
+	}
+	log.Println(buff.String())
+	return buff.String(), nil
+}
+
+func currentdate() (string, error) {
+	const layoutISO = "2006-01-02"
+	const custom = "Mon Jan _2 15:04:05 2006"
+	currentDate := time.Now().Format(custom)
+	return currentDate, nil
 }
 
 func main() {

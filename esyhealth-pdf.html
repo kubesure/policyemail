@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Esy Health Policy {{ .Data.PolicyNumber }}</title>
+</head>
+
+<body>
+    <table border="0" width="100%">
+        <tr align="right">
+            <td>Date: {{ currentdate }}</td>
+        </tr>
+        <tr>
+            <td>To,</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.Name }}</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.AddressLine1}},</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.AddressLine2}},</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.AddressLine3}},</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.City}},</td>
+        </tr>
+        <tr>
+            <td>{{ .Data.PinCode}},</td>
+        </tr>
+        <tr>
+            <td>India</td>
+        </tr>
+        <tr>
+            <td>Mobile - {{ .Data.MobileNumber}} </td>
+        </tr>
+        <tr>
+            <td>
+                Subject: Policy Number: {{ .Data.PolicyNumber }}
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Dear Customer,
+            </td>
+        </tr>
+        <tr>
+            <td></td>
+        </tr>
+        <tr>
+            <td>
+                We are thrilled to have you as our customer and look forward to serve you health needs. Please use
+                policy number {{ .Data.PolicyNumber }} when making any enquiries.
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Best Wishes,
+            </td>
+        </tr>
+        <tr>
+            <td>
+                Customer Service
+            </td>
+        </tr>
+    </table>
+
+</body>
+
+</html>
