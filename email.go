@@ -9,11 +9,13 @@ import (
 	io "io/ioutil"
 	"log"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
 	wpdf "github.com/SebastiaanKlippert/go-wkhtmltopdf"
 	e "github.com/aws/aws-lambda-go/events"
+	"github.com/aws/aws-lambda-go/lambda"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
@@ -41,15 +43,26 @@ type email struct {
 }
 
 func init() {
+
 	os.Setenv("WKHTMLTOPDF_PATH", os.Getenv("LAMBDA_TASK_ROOT"))
 }
 
+func main() {
+	lambda.Start(handler)
+}
+
 func handler(ctx context.Context, event e.S3Event) (string, error) {
+
 	for _, record := range event.Records {
 		log.Println("bucket" + record.S3.Bucket.Name)
 		log.Println("object " + record.S3.Object.Key)
-		processEvent(record)
+		err := processEvent(record)
+		if err != nil {
+			log.Println(err)
+			return "processing error ", err
+		}
 	}
+
 	return fmt.Sprintf("object processed "), nil
 }
 
@@ -66,7 +79,7 @@ func processEvent(record e.S3EventRecord) error {
 
 	result, err := svc.GetObject(input)
 	if err != nil {
-		log.Println("error getting obejct " + err.Error())
+		log.Println("error getting object " + err.Error())
 		return err
 	}
 	defer result.Body.Close()
@@ -78,22 +91,31 @@ func processEvent(record e.S3EventRecord) error {
 		return err
 	}
 
-	generatePDF(pm)
-	if err != nil {
+	pdfbytes, perr := generatePDF(pm)
+	if perr != nil {
+		log.Println("error while pdf generation")
+		log.Println(perr)
 		return err
 	}
 
-	return nil
-}
+	//newKey := strings.Replace(record.S3.Object.Key, ".json", ".pdf", -1)
+	newKey := strconv.Itoa(pm.Data.PolicyNumber) + ".pdf"
+	log.Println(newKey)
 
-func marshallReq(data string) (*polmetadata, error) {
-	var pd polmetadata
-	err := json.Unmarshal([]byte(data), &pd)
-	if err != nil {
-
-		return nil, err
+	pinput := s3.PutObjectInput{
+		Bucket: aws.String(record.S3.Bucket.Name),
+		Key:    aws.String(newKey),
+		Body:   bytes.NewReader(pdfbytes),
 	}
-	return &pd, nil
+
+	presult, putErr := svc.PutObject(&pinput)
+
+	if putErr != nil {
+		return putErr
+	}
+	log.Println(presult)
+
+	return nil
 }
 
 func generatePDF(metadata *polmetadata) ([]byte, error) {
@@ -102,7 +124,9 @@ func generatePDF(metadata *polmetadata) ([]byte, error) {
 	if herr != nil {
 		return nil, herr
 	}
+	log.Printf(html)
 
+	log.Println("os.getenv(WKHTMLTOPDF_PATH)--" + os.Getenv("WKHTMLTOPDF_PATH"))
 	pdfg, err := wpdf.NewPDFGenerator()
 	if err != nil {
 		return nil, err
@@ -116,14 +140,15 @@ func generatePDF(metadata *polmetadata) ([]byte, error) {
 	pdfg.MarginRight.Set(0)
 	err = pdfg.Create()
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return nil, err
 	}
 
 	// Write buffer contents to file on disk
-	err = pdfg.WriteFile("./simplesample.pdf")
-	if err != nil {
-		log.Fatal(err)
-	}
+	// err = pdfg.WriteFile("./simplesample.pdf")
+	// if err != nil {
+	// 	log.Fatal(err)
+	// }
 	return pdfg.Bytes(), nil
 }
 
@@ -145,13 +170,19 @@ func generateHTML(metaData *polmetadata) (string, error) {
 	return buff.String(), nil
 }
 
+func marshallReq(data string) (*polmetadata, error) {
+	var pd polmetadata
+	err := json.Unmarshal([]byte(data), &pd)
+	if err != nil {
+
+		return nil, err
+	}
+	return &pd, nil
+}
+
 func currentdate() (string, error) {
 	const layoutISO = "2006-01-02"
 	const custom = "Mon Jan _2 15:04:05 2006"
 	currentDate := time.Now().Format(custom)
 	return currentDate, nil
-}
-
-func main() {
-	//l.Start(handler)
 }

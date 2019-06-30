@@ -74,3 +74,16 @@ func TestCurrentDate(t *testing.T) {
 		t.Errorf("Incorrect date format")
 	}
 }
+
+func TestProcessEvent(t *testing.T) {
+	bucket := e.S3Bucket{Name: "kubesure-policyissued"}
+	object := e.S3Object{Key: "unprocessed_1234567890.json"}
+	r := e.S3EventRecord{}
+	r.S3.Bucket = bucket
+	r.S3.Object = object
+	err := processEvent(r)
+
+	if err != nil {
+		t.Errorf("S3 Event Processed %v", err)
+	}
+}
